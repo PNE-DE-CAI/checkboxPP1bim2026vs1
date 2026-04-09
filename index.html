@@ -114,8 +114,8 @@
         window._checklistInitialized = true;
 
         // ==================== CONFIGURAÇÃO SUPABASE ====================
-        const SUPABASE_URL = 'https://ccqsnqvpnlgkrzfujpjq.supabase.co';
-        const SUPABASE_ANON_KEY = 'sb_publishable_khWjJr_W5WaGQMdkbIKwxw_0yANUbqv';
+        const SUPABASE_URL = 'https://wvaxedoskhjptqoircup.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_GoIjPoGgq0874lTQujS_uw_TY82ARhe';
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         // ================================================================
 
@@ -291,30 +291,33 @@
 
         async function loadSchoolData() {
             if (!currentUser) return;
+            // Busca o registro da escola na tabela checklist_escolas
             const { data, error } = await supabase
                 .from('checklist_escolas')
                 .select('*')
                 .eq('user_id', currentUser.id)
                 .single();
+            
+            let escolaNome = "Escola não definida";
             if (error && error.code !== 'PGRST116') {
                 console.error(error);
-                return;
             }
             if (data) {
                 savedChecklists = data.checklist_data || { prova: {}, tarefa: {} };
-                const escolaNome = data.escola_nome;
-                document.getElementById('userNameDisplay').innerHTML = `📌 ${escolaNome}`;
+                escolaNome = data.escola_nome;
             } else {
                 // Se não houver registro, cria um novo para esta escola
-                const escolaNome = currentUser.user_metadata?.escola_nome || "Escola não definida";
+                // Tenta obter o nome do e-mail (parte antes do @) como fallback
+                const emailPrefix = currentUser.email.split('@')[0];
+                escolaNome = escolasList.find(e => e.toLowerCase().replace(/[^a-z]/g, '') === emailPrefix) || "Escola não definida";
                 savedChecklists = { prova: {}, tarefa: {} };
                 await supabase.from('checklist_escolas').insert([{
                     user_id: currentUser.id,
                     escola_nome: escolaNome,
                     checklist_data: savedChecklists
                 }]);
-                document.getElementById('userNameDisplay').innerHTML = `📌 ${escolaNome}`;
             }
+            document.getElementById('userNameDisplay').innerHTML = `📌 ${escolaNome}`;
             renderSchoolWeeks();
             renderSchoolChecklists();
         }
@@ -390,6 +393,7 @@
         async function pecLogin(email, password) {
             const { data, error } = await supabase.auth.signInWithPassword({ email, password });
             if (error) { alert('Erro no login: ' + error.message); return false; }
+            // Verifica se o usuário tem role 'pec' nos metadados (opcional, mas mantido)
             const role = data.user.user_metadata?.role;
             if (role !== 'pec') {
                 alert('Acesso negado. Você não tem permissão de PEC.');
